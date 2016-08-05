@@ -3,6 +3,7 @@ package raidman
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -14,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amir/raidman/proto"
 	pb "github.com/golang/protobuf/proto"
+	"github.com/schu/raidman/proto"
 	"golang.org/x/net/proxy"
 )
 
@@ -66,6 +67,7 @@ func DialWithTimeout(netwrk, addr string, timeout time.Duration) (c *Client, err
 	}
 
 	dialer, err := newDialer()
+
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +79,30 @@ func DialWithTimeout(netwrk, addr string, timeout time.Duration) (c *Client, err
 		return nil, err
 	}
 
+	return c, nil
+}
+
+func DialWithTLS(netwrk, addr string, timeout time.Duration, tlsConfig *tls.Config) (c *Client, err error) {
+	c = new(Client)
+
+	var cnet network
+	switch netwrk {
+	case "tcp", "tcp4", "tcp6":
+		cnet = new(tcp)
+	case "udp", "udp4", "udp6":
+		cnet = new(udp)
+	default:
+		return nil, fmt.Errorf("dial %q: unsupported network %q", netwrk, netwrk)
+	}
+
+	conn, err := tls.Dial(netwrk, addr, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	c.net = cnet
+	c.timeout = timeout
+	c.connection = conn
 	return c, nil
 }
 
